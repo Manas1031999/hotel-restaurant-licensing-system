@@ -22,9 +22,12 @@ import in.wb.nhls.license.entity.License;
 import in.wb.nhls.license.entity.LicenseApplication;
 import in.wb.nhls.license.entity.LicenseRenewal;
 import in.wb.nhls.license.entity.LicenseStatus;
+import in.wb.nhls.user.service.CurrentUser;
 
 @Service
 public class LicenseService {
+
+    private static final String LICENSE_NOT_FOUND = "এই license number-এর কোনো license পাওয়া যায়নি";
 
     private final LicenseRepository licenseRepository;
     private final LicenseApplicationRepository applicationRepository;
@@ -46,8 +49,9 @@ public class LicenseService {
 
         LicenseApplication application = applicationRepository
                 .findByApplicationNumberForUpdate(applicationNumber)
-                .orElseThrow(() -> new RuntimeException(
-                        "License application not found"));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "এই Application Number-এ কোনো আবেদন পাওয়া যায়নি"));
 
         if (application.getApplicationStatus() != LicenseApplicationStatus.APPROVED) {
             throw new ResponseStatusException(
@@ -75,17 +79,17 @@ public class LicenseService {
     @Transactional(readOnly = true)
     public License getLicenseByNumber(String licenseNumber) {
 
-        return licenseRepository.findByLicenseNumber(licenseNumber)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "এই license number-এর কোনো license পাওয়া যায়নি"));
+        return findAccessible(licenseNumber);
     }
 
     @Transactional(readOnly = true)
     public Page<LicenseResponse> getAllLicenses(Pageable pageable) {
 
-        return licenseRepository.findAll(pageable)
-                .map(LicenseResponse::fromEntity);
+        Page<License> licenses = CurrentUser.isStaff()
+                ? licenseRepository.findAll(pageable)
+                : licenseRepository.findByApplication_Business_Owner_Username(CurrentUser.username(), pageable);
+
+        return licenses.map(LicenseResponse::fromEntity);
     }
 
     @Auditable(action = "LICENSE_RENEW", entityType = "LICENSE",
@@ -94,10 +98,7 @@ public class LicenseService {
     @Transactional
     public License renewLicense(String licenseNumber) {
 
-        License license = licenseRepository.findByLicenseNumber(licenseNumber)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "এই license number-এর কোনো license পাওয়া যায়নি"));
+        License license = findAccessible(licenseNumber);
 
         if (license.getStatus() == LicenseStatus.INACTIVE) {
             throw new ResponseStatusException(
@@ -153,9 +154,7 @@ public class LicenseService {
     @Transactional(readOnly = true)
     public List<LicenseRenewalResponse> getRenewalHistory(String licenseNumber) {
 
-        License license = licenseRepository.findByLicenseNumber(licenseNumber)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "License not found with number: " + licenseNumber));
+        License license = findAccessible(licenseNumber);
 
         return licenseRenewalRepository
                 .findByLicenseIdOrderByRenewalDateDesc(license.getId())
@@ -164,4 +163,14 @@ public class LicenseService {
                 .toList();
     }
 
+    // অন্যের license হলে 404
+    private License findAccessible(String licenseNumber) {
+        License license = licenseRepository.findByLicenseNumber(licenseNumber)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, LICENSE_NOT_FOUND));
+
+        if (!CurrentUser.canAccess(license.getApplication().getBusiness().getOwner())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, LICENSE_NOT_FOUND);
+        }
+        return license;
+    }
 }

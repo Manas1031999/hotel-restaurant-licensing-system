@@ -69,6 +69,11 @@ public class LicenseApplicationService {
                         HttpStatus.NOT_FOUND,
                         "ব্যবসাটি খুঁজে পাওয়া যায়নি"));
 
+        // শুধু নিজের ব্যবসার জন্য আবেদন
+        if (!CurrentUser.canAccess(business.getOwner())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "ব্যবসাটি খুঁজে পাওয়া যায়নি");
+        }
+
         if (!business.isActive()) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -102,11 +107,20 @@ public class LicenseApplicationService {
     @Transactional(readOnly = true)
     public LicenseApplication getApplicationByNumber(String applicationNumber) {
 
-        return licenseApplicationRepository
+        LicenseApplication application = licenseApplicationRepository
                 .findByApplicationNumber(applicationNumber)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
-                        "এই Application Number-এ কোনো আবেদন পাওয়া যায়নি"));
+                        "এই Application Number-এ কোনো আবেদন পাওয়া যায়নি"));
+
+        // অন্যের আবেদন হলে 404
+        if (!CurrentUser.canAccess(application.getBusiness().getOwner())) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "এই Application Number-এ কোনো আবেদন পাওয়া যায়নি");
+        }
+
+        return application;
     }
 
     @Auditable(action = "APPLICATION_REVIEW", entityType = "LICENSE_APPLICATION",

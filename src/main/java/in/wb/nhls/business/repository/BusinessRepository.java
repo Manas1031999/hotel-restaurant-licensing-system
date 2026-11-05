@@ -18,4 +18,6 @@ public interface BusinessRepository extends JpaRepository<Business, Long> {
 
     Page<Business> findByActiveTrue(Pageable pageable);
 
+    Page<Business> findByOwnerUsernameAndActiveTrue(String username, Pageable pageable);
+
 }

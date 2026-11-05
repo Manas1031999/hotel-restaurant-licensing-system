@@ -2,13 +2,17 @@ package in.wb.nhls.business.entity;
 
 import java.time.LocalDateTime;
 
+import in.wb.nhls.user.entity.AppUser;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
@@ -46,6 +50,11 @@ public class Business {
 
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
+
+    // কোন user এই ব্যবসার মালিক; পুরনো row-এ null থাকতে পারে
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_id")
+    private AppUser owner;
 
     public Business() {
     }
@@ -125,5 +134,13 @@ public class Business {
 
     public void setActive(boolean active) {
         this.active = active;
+    }
+
+    public AppUser getOwner() {
+        return owner;
+    }
+
+    public void setOwner(AppUser owner) {
+        this.owner = owner;
     }
 }

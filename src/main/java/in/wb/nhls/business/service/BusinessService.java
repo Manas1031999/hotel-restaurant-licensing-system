@@ -6,6 +6,9 @@ import in.wb.nhls.business.dto.BusinessResponse;
 import in.wb.nhls.business.dto.UpdateBusinessRequest;
 import in.wb.nhls.business.entity.Business;
 import in.wb.nhls.business.repository.BusinessRepository;
+import in.wb.nhls.user.entity.AppUser;
+import in.wb.nhls.user.repository.AppUserRepository;
+import in.wb.nhls.user.service.CurrentUser;
 
 import java.util.List;
 
@@ -19,10 +22,14 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class BusinessService {
 
-    private final BusinessRepository businessRepository;
+    private static final String NOT_FOUND = "এই ব্যবসার কোনো তথ্য পাওয়া যায়নি";
 
-    public BusinessService(BusinessRepository businessRepository) {
+    private final BusinessRepository businessRepository;
+    private final AppUserRepository userRepository;
+
+    public BusinessService(BusinessRepository businessRepository, AppUserRepository userRepository) {
         this.businessRepository = businessRepository;
+        this.userRepository = userRepository;
     }
 
     @Auditable(action = "BUSINESS_REGISTER", entityType = "BUSINESS",
@@ -56,25 +63,25 @@ public class BusinessService {
         business.setEmail(request.email());
         business.setDistrict(request.district());
         business.setAddress(request.address());
+        business.setOwner(currentUser());
 
         return businessRepository.save(business);
     }
 
+    @Transactional(readOnly = true)
     public Page<BusinessResponse> getAllBusinesses(Pageable pageable) {
 
-        return businessRepository.findByActiveTrue(pageable)
-                .map(BusinessResponse::fromEntity);
+        Page<Business> businesses = CurrentUser.isStaff()
+                ? businessRepository.findByActiveTrue(pageable)
+                : businessRepository.findByOwnerUsernameAndActiveTrue(CurrentUser.username(), pageable);
+
+        return businesses.map(BusinessResponse::fromEntity);
     }
 
     @Transactional(readOnly = true)
     public BusinessResponse getBusinessById(Long id) {
 
-        Business business = businessRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "এই ব্যবসার কোনো তথ্য পাওয়া যায়নি"));
-
-        return BusinessResponse.fromEntity(business);
+        return BusinessResponse.fromEntity(findAccessible(id));
     }
 
     @Auditable(action = "BUSINESS_UPDATE", entityType = "BUSINESS", entityId = "#id")
@@ -83,10 +90,7 @@ public class BusinessService {
             Long id,
             UpdateBusinessRequest request) {
 
-        Business business = businessRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "এই ব্যবসার কোনো তথ্য পাওয়া যায়নি"));
+        Business business = findAccessible(id);
 
         business.setBusinessName(request.businessName());
         business.setBusinessType(request.businessType());
@@ -119,4 +123,20 @@ public class BusinessService {
         businessRepository.save(business);
     }
 
+    // অন্যের ব্যবসা হলে 404, যাতে সেটা আছে কিনা বোঝা না যায়
+    private Business findAccessible(Long id) {
+        Business business = businessRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, NOT_FOUND));
+
+        if (!CurrentUser.canAccess(business.getOwner())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, NOT_FOUND);
+        }
+        return business;
+    }
+
+    private AppUser currentUser() {
+        return userRepository.findByUsername(CurrentUser.username())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "অনুগ্রহ করে লগইন করুন"));
+    }
 }

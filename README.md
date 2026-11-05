@@ -55,6 +55,15 @@ Login returns a signed JWT. Send it on every request as `Authorization: Bearer <
 - **Login hardening.** Failed logins return the same message whether the username exists or not, and take the same time.
 - **Consistent errors.** 401 and 403 responses use the same JSON shape as other errors.
 
+### Ownership
+
+Each business is linked to the user who registered it, and applications, licenses and payments inherit that owner through the business.
+
+- An `APPLICANT` sees and changes only their own businesses, applications, licenses and payments. List endpoints return only their own records.
+- Accessing someone else's record returns `404`, not `403`, so it is not revealed whether that record exists.
+- `REVIEWER`, `APPROVER` and `ADMIN` can see every record.
+- All checks use one helper, `CurrentUser.canAccess(owner)`, called from the services.
+
 ## Application workflow
 
 ```mermaid
@@ -220,7 +229,7 @@ User-facing error and success messages are in Bengali.
 ## Roadmap
 
 - [x] JWT authentication with roles (`APPLICANT`, `REVIEWER`, `APPROVER`, `ADMIN`)
-- [ ] Ownership checks, so applicants see and change only their own businesses and applications
+- [x] Ownership checks, so applicants see and change only their own businesses and applications
 - [ ] Notifications through an `@Notify` aspect with an outbox table and retry
 - [ ] Observability with Prometheus, Loki and Grafana
 - [ ] Workflow transitions stored in the database instead of code
