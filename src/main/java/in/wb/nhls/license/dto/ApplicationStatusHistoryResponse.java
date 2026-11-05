@@ -10,6 +10,7 @@ public record ApplicationStatusHistoryResponse(
         LicenseApplicationStatus previousStatus,
         LicenseApplicationStatus newStatus,
         String remarks,
+        String changedBy,
         LocalDateTime changedAt) {
 
     public static ApplicationStatusHistoryResponse fromEntity(
@@ -20,6 +21,7 @@ public record ApplicationStatusHistoryResponse(
                 history.getPreviousStatus(),
                 history.getNewStatus(),
                 history.getRemarks(),
+                history.getChangedBy(),
                 history.getChangedAt());
     }
 }

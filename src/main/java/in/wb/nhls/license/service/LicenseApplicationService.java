@@ -24,6 +24,8 @@ import in.wb.nhls.license.dto.LicenseApplicationResponse;
 import in.wb.nhls.license.dto.LicenseApplicationReviewRequest;
 import in.wb.nhls.license.entity.ApplicationStatusHistory;
 import in.wb.nhls.license.entity.LicenseApplication;
+import in.wb.nhls.user.entity.Role;
+import in.wb.nhls.user.service.CurrentUser;
 
 @Service
 public class LicenseApplicationService {
@@ -34,6 +36,12 @@ public class LicenseApplicationService {
             LicenseApplicationStatus.UNDER_REVIEW, Set.of(
                     LicenseApplicationStatus.APPROVED,
                     LicenseApplicationStatus.REJECTED));
+
+    // কোন status কে দিতে পারবে: review করে REVIEWER, চূড়ান্ত সিদ্ধান্ত APPROVER
+    private static final Map<LicenseApplicationStatus, Role> REQUIRED_ROLE = Map.of(
+            LicenseApplicationStatus.UNDER_REVIEW, Role.REVIEWER,
+            LicenseApplicationStatus.APPROVED, Role.APPROVER,
+            LicenseApplicationStatus.REJECTED, Role.APPROVER);
 
     private final LicenseApplicationRepository licenseApplicationRepository;
     private final BusinessRepository businessRepository;
@@ -135,6 +143,13 @@ public class LicenseApplicationService {
                             + " করা যাবে না। অনুমোদিত: " + allowedNext);
         }
 
+        Role requiredRole = REQUIRED_ROLE.get(newStatus);
+        if (!CurrentUser.hasRole(requiredRole)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    newStatus.name() + " করার অনুমতি শুধু " + requiredRole.name() + "-এর আছে");
+        }
+
         application.setApplicationStatus(newStatus);
         application.setRemarks(request.remarks());
 
@@ -186,6 +201,7 @@ public class LicenseApplicationService {
         history.setPreviousStatus(previousStatus);
         history.setNewStatus(newStatus);
         history.setRemarks(remarks);
+        history.setChangedBy(CurrentUser.username());
 
         statusHistoryRepository.save(history);
     }

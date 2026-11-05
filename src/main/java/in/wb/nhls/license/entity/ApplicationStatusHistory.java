@@ -30,6 +30,9 @@ public class ApplicationStatusHistory {
     @Column(length = 1000)
     private String remarks;
 
+    @Column(length = 50)
+    private String changedBy;
+
     @Column(nullable = false)
     private LocalDateTime changedAt;
 
@@ -72,6 +75,14 @@ public class ApplicationStatusHistory {
 
     public void setRemarks(String remarks) {
         this.remarks = remarks;
+    }
+
+    public String getChangedBy() {
+        return changedBy;
+    }
+
+    public void setChangedBy(String changedBy) {
+        this.changedBy = changedBy;
     }
 
     public LocalDateTime getChangedAt() {

@@ -2,8 +2,9 @@
 
 A backend for registering hotels, restaurants, lodges and resorts, reviewing their license applications, and issuing, renewing and expiring licenses. Built with **Spring Boot 4** and **Java 21**.
 
-The project focuses on three backend patterns:
+The project focuses on four backend patterns:
 
+- **JWT authentication with roles.** Applicants, reviewers, approvers and admins each get only the actions they need.
 - **Rule-driven review workflow.** Applications move through fixed states, and invalid jumps are rejected.
 - **Status history.** Every state change is recorded in the same transaction as the change itself.
 - **AOP audit logging.** One `@Auditable` annotation records who did what, from where, and whether it succeeded, with no audit code inside business methods.
@@ -14,6 +15,7 @@ The project focuses on three backend patterns:
 |---|---|
 | Language | Java 21 |
 | Framework | Spring Boot 4.1 (Web MVC, Data JPA, Validation, Security, Actuator) |
+| Auth | Spring Security OAuth2 Resource Server, JWT (HS256), BCrypt |
 | AOP | Spring AOP with AspectJ annotations (`spring-boot-starter-aspectj`) |
 | Database | PostgreSQL |
 | Build | Maven (wrapper included) |
@@ -27,11 +29,31 @@ in.wb.nhls
 ├── license/    License applications, review, status history, licenses, renewals
 ├── payment/    Payment initiation and a mock payment gateway
 ├── audit/      @Auditable annotation, aspect, async listener, audit log API
-├── config/     Security configuration
+├── user/       Users, roles, register/login, JWT issuing, admin user management
+├── config/     Security rules, JWT encoder/decoder, JSON 401/403 responses
 └── exception/  Global exception handler (consistent JSON errors)
 ```
 
 Each module is split into `controller`, `service`, `entity` and `dto` packages, with its own repositories.
+
+## Authentication and roles
+
+Login returns a signed JWT. Send it on every request as `Authorization: Bearer <token>`.
+
+| Role | Can do |
+|---|---|
+| `APPLICANT` | Register (self sign-up), register businesses, submit applications, renew licenses, pay |
+| `REVIEWER` | Move an application to `UNDER_REVIEW` |
+| `APPROVER` | `APPROVED` / `REJECTED`, generate licenses |
+| `ADMIN` | Create staff users, read audit logs, deactivate businesses, run the expiry job |
+
+- **Two layers of checks.** URL rules in `SecurityConfig` decide who may call an endpoint. Inside the review endpoint, the service also checks which role may set which status, so a reviewer cannot approve and an approver cannot skip the review step.
+- **Built-in token handling.** Tokens are validated by Spring Security's resource server (signature, expiry, issuer), not by a hand-written filter.
+- **Token claims.** The username is the `sub` claim and the role is in `roles`. Audit logs and status history record the real user automatically.
+- **Staff accounts.** Self sign-up always creates an `APPLICANT`. Only an `ADMIN` can create `REVIEWER`, `APPROVER` or `ADMIN` accounts.
+- **First admin.** On first start, an admin is created from `ADMIN_USERNAME` / `ADMIN_PASSWORD`. The defaults are `admin` / `Admin@12345`, for local use only.
+- **Login hardening.** Failed logins return the same message whether the username exists or not, and take the same time.
+- **Consistent errors.** 401 and 403 responses use the same JSON shape as other errors.
 
 ## Application workflow
 
@@ -104,6 +126,15 @@ Audited operations: business register, update and deactivate; application submit
 
 ## API
 
+### Auth and users
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| POST | `/api/v1/auth/register` | Public | Sign up as an applicant |
+| POST | `/api/v1/auth/login` | Public | Get a JWT |
+| GET | `/api/v1/auth/me` | Logged in | Current user |
+| POST | `/api/v1/users` | ADMIN | Create a user with any role |
+| GET | `/api/v1/users` | ADMIN | List users |
+
 ### Business
 | Method | Endpoint | Description |
 |---|---|---|
@@ -148,9 +179,9 @@ Audited operations: business register, update and deactivate; application submit
 
 ```json
 [
-  { "historyId": 1, "previousStatus": null, "newStatus": "PENDING", "remarks": "আবেদন জমা দেওয়া হয়েছে" },
-  { "historyId": 2, "previousStatus": "PENDING", "newStatus": "UNDER_REVIEW", "remarks": "Documents received" },
-  { "historyId": 3, "previousStatus": "UNDER_REVIEW", "newStatus": "APPROVED", "remarks": "It is approved" }
+  { "historyId": 1, "previousStatus": null, "newStatus": "PENDING", "remarks": "আবেদন জমা দেওয়া হয়েছে", "changedBy": "rahim" },
+  { "historyId": 2, "previousStatus": "PENDING", "newStatus": "UNDER_REVIEW", "remarks": "Documents checked", "changedBy": "reviewer1" },
+  { "historyId": 3, "previousStatus": "UNDER_REVIEW", "newStatus": "APPROVED", "remarks": "All good", "changedBy": "approver1" }
 ]
 ```
 
@@ -173,12 +204,23 @@ Audited operations: business register, update and deactivate; application submit
    ```
    On Windows: `mvnw.cmd spring-boot:run`
 4. The API runs at `http://localhost:8080`. Check `GET /api/v1/health`.
+5. Log in as the admin, create a reviewer and an approver with `POST /api/v1/users`, then sign up an applicant with `/api/v1/auth/register`.
+
+| Environment variable | Default | Purpose |
+|---|---|---|
+| `DB_PASSWORD` | `root` | PostgreSQL password |
+| `JWT_SECRET` | dev secret | HS256 signing key, at least 32 characters |
+| `ADMIN_USERNAME` | `admin` | First admin account |
+| `ADMIN_PASSWORD` | `Admin@12345` | First admin password |
+
+Change `JWT_SECRET` and `ADMIN_PASSWORD` before any real deployment.
 
 User-facing error and success messages are in Bengali.
 
 ## Roadmap
 
-- [ ] JWT authentication with roles (`APPLICANT`, `REVIEWER`, `APPROVER`, `ADMIN`)
+- [x] JWT authentication with roles (`APPLICANT`, `REVIEWER`, `APPROVER`, `ADMIN`)
+- [ ] Ownership checks, so applicants see and change only their own businesses and applications
 - [ ] Notifications through an `@Notify` aspect with an outbox table and retry
 - [ ] Observability with Prometheus, Loki and Grafana
 - [ ] Workflow transitions stored in the database instead of code
