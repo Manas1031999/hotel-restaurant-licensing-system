@@ -24,6 +24,8 @@ import in.wb.nhls.license.dto.LicenseApplicationResponse;
 import in.wb.nhls.license.dto.LicenseApplicationReviewRequest;
 import in.wb.nhls.license.entity.ApplicationStatusHistory;
 import in.wb.nhls.license.entity.LicenseApplication;
+import in.wb.nhls.notification.annotation.Notify;
+import in.wb.nhls.notification.template.NotificationTemplate;
 import in.wb.nhls.user.entity.Role;
 import in.wb.nhls.user.service.CurrentUser;
 
@@ -60,6 +62,10 @@ public class LicenseApplicationService {
     @Auditable(action = "APPLICATION_SUBMIT", entityType = "LICENSE_APPLICATION",
             entityId = "#result?.applicationNumber",
             detail = "'businessId: ' + #request.businessId()")
+    @Notify(template = NotificationTemplate.APPLICATION_SUBMITTED,
+            to = "#result.business.email",
+            params = "{appNo: #result.applicationNumber, ownerName: #result.business.ownerName,"
+                    + " businessName: #result.business.businessName}")
     @Transactional
     public LicenseApplication submitApplication(
             LicenseApplicationRequest request) {
@@ -126,6 +132,11 @@ public class LicenseApplicationService {
     @Auditable(action = "APPLICATION_REVIEW", entityType = "LICENSE_APPLICATION",
             entityId = "#applicationNumber",
             detail = "'requested status: ' + #request.applicationStatus()")
+    @Notify(template = NotificationTemplate.APPLICATION_STATUS_CHANGED,
+            to = "#result.business.email",
+            params = "{appNo: #result.applicationNumber, status: #result.applicationStatus,"
+                    + " remarks: #result.remarks, ownerName: #result.business.ownerName,"
+                    + " businessName: #result.business.businessName}")
     @Transactional
     public LicenseApplication reviewApplication(
             String applicationNumber,

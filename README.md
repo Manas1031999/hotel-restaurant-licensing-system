@@ -2,12 +2,13 @@
 
 A backend for registering hotels, restaurants, lodges and resorts, reviewing their license applications, and issuing, renewing and expiring licenses. Built with **Spring Boot 4** and **Java 21**.
 
-The project focuses on four backend patterns:
+The project focuses on five backend patterns:
 
 - **JWT authentication with roles.** Applicants, reviewers, approvers and admins each get only the actions they need.
 - **Rule-driven review workflow.** Applications move through fixed states, and invalid jumps are rejected.
 - **Status history.** Every state change is recorded in the same transaction as the change itself.
 - **AOP audit logging.** One `@Auditable` annotation records who did what, from where, and whether it succeeded, with no audit code inside business methods.
+- **Transactional outbox notifications.** One `@Notify` annotation queues an email in the same transaction as the business change, and a dispatcher sends it with retries.
 
 ## Tech stack
 
@@ -30,6 +31,7 @@ in.wb.nhls
 ├── payment/    Payment initiation and a mock payment gateway
 ├── audit/      @Auditable annotation, aspect, async listener, audit log API
 ├── user/       Users, roles, register/login, JWT issuing, admin user management
+├── notification/ @Notify annotation, outbox table, mail dispatcher, admin API
 ├── config/     Security rules, JWT encoder/decoder, JSON 401/403 responses
 └── exception/  Global exception handler (consistent JSON errors)
 ```
@@ -133,6 +135,37 @@ Each audit row stores: action, entity type and id, outcome, actor, IP, HTTP meth
 
 Audited operations: business register, update and deactivate; application submit and review; license generate, renew and expire batch; payment initiate and complete.
 
+## Notifications with a transactional outbox
+
+```java
+@Notify(template = NotificationTemplate.APPLICATION_STATUS_CHANGED,
+        to = "#result.business.email",
+        params = "{appNo: #result.applicationNumber, status: #result.applicationStatus, remarks: #result.remarks}")
+@Transactional
+public LicenseApplication reviewApplication(...) { ... }
+```
+
+```mermaid
+flowchart LR
+    S[Service method] -->|same transaction| O[(notification_outbox<br/>PENDING)]
+    D[OutboxDispatcher<br/>every 10s] -->|FOR UPDATE SKIP LOCKED| O
+    D -->|SMTP| M[Mail server]
+    D -->|success| SENT[SENT]
+    D -->|error| R[retry with backoff<br/>30s, 1m, 2m, 4m]
+    R -->|5 attempts| F[FAILED<br/>admin can retry]
+```
+
+**Why an outbox?** Sending the email directly inside the request has two failure modes. The email is sent but the transaction rolls back, or the transaction commits but the mail server is down and the email is lost. With an outbox:
+
+- **Atomic with the business change.** The notification row is written in the same transaction. `NotifyAspect` runs inside `@Transactional` (ordering set in `TransactionConfig`), and `NotificationService.enqueue` uses `Propagation.MANDATORY`, so it cannot run outside a transaction by mistake.
+- **Nothing is lost.** If the mail server is down, the row stays `PENDING` and is retried with exponential backoff. After 5 attempts it becomes `FAILED`, and an admin can retry it.
+- **Safe with many instances.** The dispatcher locks rows with `FOR UPDATE SKIP LOCKED`, so two app instances never send the same email.
+- **No email for failed actions.** `@AfterReturning` only fires on success.
+
+Notifications are sent for: application submitted, status changed, license issued, license renewed, and license expired. The expiry notification is queued directly from the batch job.
+
+Locally, [Mailpit](https://mailpit.axllent.org/) catches every email. SMTP runs on `1025` and the web UI on `http://localhost:8025`.
+
 ## API
 
 ### Auth and users
@@ -182,6 +215,8 @@ Audited operations: business register, update and deactivate; application submit
 | Method | Endpoint | Description |
 |---|---|---|
 | GET | `/api/v1/audit-logs` | Search audit logs. Optional filters: `entityType`, `entityId`, `action`, `outcome`, `actor`, `page`, `size` |
+| GET | `/api/v1/notifications?status=FAILED` | List outbox notifications (ADMIN) |
+| POST | `/api/v1/notifications/{id}/retry` | Retry a failed notification (ADMIN) |
 | GET | `/api/v1/health` | Health check |
 
 ### Example: status history
@@ -196,7 +231,7 @@ Audited operations: business register, update and deactivate; application submit
 
 ## Running locally
 
-**Requirements:** Java 21 and PostgreSQL.
+**Requirements:** Java 21 and PostgreSQL. Optional: Mailpit, to see the emails (`mailpit --listen 127.0.0.1:8025 --smtp 127.0.0.1:1025`).
 
 1. Create the database:
    ```sql
@@ -221,6 +256,7 @@ Audited operations: business register, update and deactivate; application submit
 | `JWT_SECRET` | dev secret | HS256 signing key, at least 32 characters |
 | `ADMIN_USERNAME` | `admin` | First admin account |
 | `ADMIN_PASSWORD` | `Admin@12345` | First admin password |
+| `MAIL_HOST` / `MAIL_PORT` | `localhost` / `1025` | SMTP server for notifications |
 
 Change `JWT_SECRET` and `ADMIN_PASSWORD` before any real deployment.
 
@@ -230,7 +266,7 @@ User-facing error and success messages are in Bengali.
 
 - [x] JWT authentication with roles (`APPLICANT`, `REVIEWER`, `APPROVER`, `ADMIN`)
 - [x] Ownership checks, so applicants see and change only their own businesses and applications
-- [ ] Notifications through an `@Notify` aspect with an outbox table and retry
+- [x] Notifications through an `@Notify` aspect with an outbox table and retry
 - [ ] Observability with Prometheus, Loki and Grafana
 - [ ] Workflow transitions stored in the database instead of code
 - [ ] Flyway migrations in place of `ddl-auto=update`

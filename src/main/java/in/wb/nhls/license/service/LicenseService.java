@@ -22,6 +22,9 @@ import in.wb.nhls.license.entity.License;
 import in.wb.nhls.license.entity.LicenseApplication;
 import in.wb.nhls.license.entity.LicenseRenewal;
 import in.wb.nhls.license.entity.LicenseStatus;
+import in.wb.nhls.notification.annotation.Notify;
+import in.wb.nhls.notification.service.NotificationService;
+import in.wb.nhls.notification.template.NotificationTemplate;
 import in.wb.nhls.user.service.CurrentUser;
 
 @Service
@@ -32,18 +35,27 @@ public class LicenseService {
     private final LicenseRepository licenseRepository;
     private final LicenseApplicationRepository applicationRepository;
     private final LicenseRenewalRepository licenseRenewalRepository;
+    private final NotificationService notificationService;
 
     public LicenseService(
             LicenseRepository licenseRepository,
-            LicenseApplicationRepository applicationRepository, LicenseRenewalRepository licenseRenewalRepository) {
+            LicenseApplicationRepository applicationRepository,
+            LicenseRenewalRepository licenseRenewalRepository,
+            NotificationService notificationService) {
         this.licenseRepository = licenseRepository;
         this.applicationRepository = applicationRepository;
         this.licenseRenewalRepository = licenseRenewalRepository;
+        this.notificationService = notificationService;
     }
 
     @Auditable(action = "LICENSE_GENERATE", entityType = "LICENSE",
             entityId = "#result?.licenseNumber",
             detail = "'application: ' + #applicationNumber")
+    @Notify(template = NotificationTemplate.LICENSE_ISSUED,
+            to = "#result.application.business.email",
+            params = "{licenseNo: #result.licenseNumber, validUntil: #result.validUntil,"
+                    + " ownerName: #result.application.business.ownerName,"
+                    + " businessName: #result.application.business.businessName}")
     @Transactional
     public License generateLicense(String applicationNumber) {
 
@@ -95,6 +107,11 @@ public class LicenseService {
     @Auditable(action = "LICENSE_RENEW", entityType = "LICENSE",
             entityId = "#licenseNumber",
             detail = "'valid until: ' + #result?.validUntil")
+    @Notify(template = NotificationTemplate.LICENSE_RENEWED,
+            to = "#result.application.business.email",
+            params = "{licenseNo: #result.licenseNumber, validUntil: #result.validUntil,"
+                    + " ownerName: #result.application.business.ownerName,"
+                    + " businessName: #result.application.business.businessName}")
     @Transactional
     public License renewLicense(String licenseNumber) {
 
@@ -143,6 +160,14 @@ public class LicenseService {
                 license.setStatus(LicenseStatus.EXPIRED);
 
                 licenseRepository.save(license);
+
+                // batch-এর ভেতরে প্রতিটার জন্য আলাদা, তাই annotation নয়, সরাসরি
+                var business = license.getApplication().getBusiness();
+                notificationService.enqueue(NotificationTemplate.LICENSE_EXPIRED, business.getEmail(),
+                        java.util.Map.of(
+                                "licenseNo", license.getLicenseNumber(),
+                                "ownerName", business.getOwnerName(),
+                                "businessName", business.getBusinessName()));
 
                 expiredCount++;
             }
