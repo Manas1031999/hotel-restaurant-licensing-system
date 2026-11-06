@@ -32,10 +32,18 @@ cd "C:\Users\manas\Downloads\Hotel & Restaurant Licensing System\wb-nhls"
 **Terminal ২: App চালু**
 
 ```powershell
-.\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=observability
+.\scripts\run-app.ps1
 ```
 
-`Started WbNhlsApplication` দেখালে app তৈরি। VS Code থেকে চালাতে চাইলে run configuration-এ environment variable দে: `SPRING_PROFILES_ACTIVE=observability`।
+`Started WbNhlsApplication` দেখালে app তৈরি।
+
+নিজে Maven দিয়ে চালাতে চাইলে `-D...` অংশটা **quote-এর ভেতরে** দিতে হবে, নাহলে PowerShell `.`-এর জায়গায় ভেঙে দেয় আর "Unknown lifecycle phase" error আসে:
+
+```powershell
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=observability"
+```
+
+VS Code-এর Run/Debug বাটন দিয়ে চালাতে চাইলে run configuration-এ environment variable দে: `SPRING_PROFILES_ACTIVE=observability`।
 `observability` profile না দিলে app চলবে, কিন্তু log Loki-তে যাবে না।
 
 App চালু হওয়ার সময় যা হয়, console-এ খেয়াল কর:
@@ -220,6 +228,7 @@ App-এর terminal-এ `Ctrl+C`, তারপর:
 |---|---|
 | `mailpit` চালালে "address already in use" | Mailpit আগে থেকেই চলছে। Task Manager-এ `mailpit` বন্ধ কর, অথবা `dev-down.ps1` চালা |
 | `mailpit` command পাওয়া যাচ্ছে না | Install-এর পরে নতুন terminal খোল |
+| `Unknown lifecycle phase ".run.profiles=observability"` | `-D...` অংশে quote নেই। `.\scripts\run-app.ps1` চালা, অথবা `"-Dspring-boot.run.profiles=observability"` লেখ |
 | App চালু হচ্ছে না, "Port 8080 was already in use" | আরেকটা app চলছে। IDE-তে আগেরটা বন্ধ কর |
 | App চালু হচ্ছে না, "Schema-validation" error | Entity বদলেছিস কিন্তু migration লিখিসনি। নতুন `V2__...sql` লাগবে |
 | Bruno-তে সব request 401 | Token-এর মেয়াদ শেষ। `0-setup` আবার চালা |

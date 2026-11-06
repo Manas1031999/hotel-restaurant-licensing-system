@@ -35,4 +35,4 @@ Write-Host "  Prometheus http://localhost:9090"
 Write-Host "  Mailpit    http://127.0.0.1:8025"
 Write-Host ""
 Write-Host "এবার app চালা observability profile দিয়ে:" -ForegroundColor Cyan
-Write-Host "  .\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=observability"
+Write-Host "  .\scripts\run-app.ps1"
