@@ -15,7 +15,8 @@ The project focuses on five backend patterns:
 | Layer | Technology |
 |---|---|
 | Language | Java 21 |
-| Framework | Spring Boot 4.1 (Web MVC, Data JPA, Validation, Security, Actuator) |
+| Framework | Spring Boot 4.1 (Web MVC, Data JPA, Validation, Security, Actuator, Mail) |
+| Observability | Micrometer, Prometheus, Loki (loki4j), Grafana, Docker Compose |
 | Auth | Spring Security OAuth2 Resource Server, JWT (HS256), BCrypt |
 | AOP | Spring AOP with AspectJ annotations (`spring-boot-starter-aspectj`) |
 | Database | PostgreSQL |
@@ -182,6 +183,39 @@ Notifications are sent for: application submitted, status changed, license issue
 
 Locally, [Mailpit](https://mailpit.axllent.org/) catches every email. SMTP runs on `1025` and the web UI on `http://localhost:8025`.
 
+## Observability: Prometheus, Loki and Grafana
+
+```mermaid
+flowchart LR
+    A[Spring Boot app<br/>:8080] -->|/actuator/prometheus<br/>scraped every 5s| P[Prometheus :9090]
+    A -->|logs via loki4j| L[Loki :3100]
+    P --> G[Grafana :3000]
+    L --> G
+```
+
+- **Metrics.** Micrometer exposes JVM memory, GC, threads, Tomcat thread pool, Hikari connection pool, and HTTP request rate and latency (with a histogram for p95/p99).
+- **Business metrics.**
+
+  | Metric | Meaning |
+  |---|---|
+  | `nhls_applications_submitted_total{business_type}` | Applications submitted |
+  | `nhls_workflow_transitions_total{from,to,business_type}` | Status changes |
+  | `nhls_notifications_total{result,template}` | Emails sent or failed attempts |
+  | `nhls_notifications_pending` | Outbox backlog |
+
+- **Logs.** With the `observability` profile, logs are also pushed to Loki, labelled by app, level and logger.
+- **Dashboard.** A ready-made dashboard, *NHLS - Licensing System Overview*, is provisioned automatically. It covers business activity, HTTP traffic and latency, JVM, threads, the DB pool, and error logs.
+
+**Run it** (requires Docker):
+
+```bash
+docker compose -f infra/docker-compose.yml up -d
+```
+
+Then start the app with the `observability` profile (`SPRING_PROFILES_ACTIVE=observability`) and open Grafana at `http://localhost:3000` (`admin` / `admin`).
+
+`/actuator/prometheus` and `/actuator/health` are open so Prometheus can scrape them. Every other actuator endpoint stays protected. In production, put actuator on a separate management port.
+
 ## API
 
 ### Auth and users
@@ -291,7 +325,7 @@ User-facing error and success messages are in Bengali.
 - [x] JWT authentication with roles (`APPLICANT`, `REVIEWER`, `APPROVER`, `ADMIN`)
 - [x] Ownership checks, so applicants see and change only their own businesses and applications
 - [x] Notifications through an `@Notify` aspect with an outbox table and retry
-- [ ] Observability with Prometheus, Loki and Grafana
+- [x] Observability with Prometheus, Loki and Grafana
 - [x] Workflow transitions stored in the database instead of code
 - [ ] Flyway migrations in place of `ddl-auto=update`
 - [ ] Integration tests with Testcontainers

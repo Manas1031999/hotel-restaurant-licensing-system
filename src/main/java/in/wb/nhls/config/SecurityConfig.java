@@ -34,6 +34,8 @@ public class SecurityConfig {
 
                 // খোলা
                 .requestMatchers("/api/v1/health").permitAll()
+                // Prometheus token ছাড়া metric নেয়; production-এ আলাদা management port রাখবি
+                .requestMatchers("/actuator/health", "/actuator/prometheus").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login").permitAll()
 
                 // শুধু ADMIN

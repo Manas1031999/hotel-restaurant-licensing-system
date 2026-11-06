@@ -27,6 +27,8 @@ import in.wb.nhls.notification.template.NotificationTemplate;
 import in.wb.nhls.user.service.CurrentUser;
 import in.wb.nhls.workflow.service.WorkflowService;
 
+import io.micrometer.core.instrument.MeterRegistry;
+
 @Service
 public class LicenseApplicationService {
 
@@ -34,17 +36,20 @@ public class LicenseApplicationService {
     private final BusinessRepository businessRepository;
     private final ApplicationStatusHistoryRepository statusHistoryRepository;
     private final WorkflowService workflowService;
+    private final MeterRegistry meterRegistry;
 
     public LicenseApplicationService(
             LicenseApplicationRepository licenseApplicationRepository,
             BusinessRepository businessRepository,
             ApplicationStatusHistoryRepository statusHistoryRepository,
-            WorkflowService workflowService) {
+            WorkflowService workflowService,
+            MeterRegistry meterRegistry) {
 
         this.licenseApplicationRepository = licenseApplicationRepository;
         this.businessRepository = businessRepository;
         this.statusHistoryRepository = statusHistoryRepository;
         this.workflowService = workflowService;
+        this.meterRegistry = meterRegistry;
     }
 
     @Auditable(action = "APPLICATION_SUBMIT", entityType = "LICENSE_APPLICATION",
@@ -94,6 +99,9 @@ public class LicenseApplicationService {
                 null,
                 LicenseApplicationStatus.PENDING,
                 "আবেদন জমা দেওয়া হয়েছে");
+
+        meterRegistry.counter("nhls.applications.submitted",
+                "business_type", business.getBusinessType().name()).increment();
 
         return licenseApplicationRepository.save(application);
     }
@@ -156,6 +164,10 @@ public class LicenseApplicationService {
         application.setRemarks(request.remarks());
 
         recordStatusChange(application, currentStatus, newStatus, request.remarks());
+
+        meterRegistry.counter("nhls.workflow.transitions",
+                "from", currentStatus.name(), "to", newStatus.name(),
+                "business_type", application.getBusiness().getBusinessType().name()).increment();
 
         // চূড়ান্ত সিদ্ধান্ত হলে review date set হবে
         if (newStatus == LicenseApplicationStatus.APPROVED

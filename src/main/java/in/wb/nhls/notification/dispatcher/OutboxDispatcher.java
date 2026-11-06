@@ -14,7 +14,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import in.wb.nhls.notification.entity.NotificationOutbox;
+import in.wb.nhls.notification.entity.NotificationStatus;
 import in.wb.nhls.notification.repository.NotificationOutboxRepository;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
 
 // নিয়মিত outbox থেকে PENDING row তুলে email পাঠায়
 @Component
@@ -28,17 +31,26 @@ public class OutboxDispatcher {
     private final String from;
     private final int batchSize;
     private final int maxAttempts;
+    private final MeterRegistry meterRegistry;
 
     public OutboxDispatcher(NotificationOutboxRepository outboxRepository,
             JavaMailSender mailSender,
+            MeterRegistry meterRegistry,
             @Value("${nhls.notification.from}") String from,
             @Value("${nhls.notification.batch-size:20}") int batchSize,
             @Value("${nhls.notification.max-attempts:5}") int maxAttempts) {
         this.outboxRepository = outboxRepository;
         this.mailSender = mailSender;
+        this.meterRegistry = meterRegistry;
         this.from = from;
         this.batchSize = batchSize;
         this.maxAttempts = maxAttempts;
+
+        // প্রতিবার scrape-এ DB থেকে গোনা
+        Gauge.builder("nhls.notifications.pending",
+                        () -> outboxRepository.countByStatus(NotificationStatus.PENDING))
+                .description("Outbox-এ পাঠানোর অপেক্ষায় থাকা notification")
+                .register(meterRegistry);
     }
 
     @Scheduled(fixedDelayString = "${nhls.notification.poll-interval-ms:10000}")
@@ -50,12 +62,19 @@ public class OutboxDispatcher {
             try {
                 send(notification);
                 notification.markSent();
+                count("sent", notification);
             } catch (Exception ex) {
                 notification.markAttemptFailed(ex.getMessage(), maxAttempts);
+                count("failed_attempt", notification);
                 log.warn("Notification {} পাঠানো যায়নি (চেষ্টা {}): {}",
                         notification.getId(), notification.getAttempts(), ex.getMessage());
             }
         }
+    }
+
+    private void count(String result, NotificationOutbox notification) {
+        meterRegistry.counter("nhls.notifications",
+                "result", result, "template", notification.getTemplate().name()).increment();
     }
 
     private void send(NotificationOutbox notification) {

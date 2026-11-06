@@ -25,4 +25,6 @@ public interface NotificationOutboxRepository extends JpaRepository<Notification
     List<NotificationOutbox> lockDueBatch(@Param("now") LocalDateTime now, @Param("limit") int limit);
 
     Page<NotificationOutbox> findByStatus(NotificationStatus status, Pageable pageable);
+
+    long countByStatus(NotificationStatus status);
 }

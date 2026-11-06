@@ -1,0 +1,39 @@
+# Prometheus + Loki + Grafana
+# চালাতে: docker compose -f infra/docker-compose.yml up -d
+# Grafana: http://localhost:3000 (admin / admin), Prometheus: http://localhost:9090
+services:
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: nhls-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "127.0.0.1:9090:9090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  loki:
+    image: grafana/loki:3.1.0
+    container_name: nhls-loki
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "127.0.0.1:3100:3100"
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: nhls-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_DEFAULT_THEME: dark
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - prometheus
+      - loki
