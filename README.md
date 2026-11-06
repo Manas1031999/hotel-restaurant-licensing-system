@@ -20,7 +20,9 @@ The project focuses on five backend patterns:
 | Auth | Spring Security OAuth2 Resource Server, JWT (HS256), BCrypt |
 | AOP | Spring AOP with AspectJ annotations (`spring-boot-starter-aspectj`) |
 | Database | PostgreSQL |
+| Database migrations | Flyway (Hibernate in `validate` mode) |
 | Build | Maven (wrapper included) |
+| Testing | JUnit 5, Spring MockMvc, Spring Security Test, Testcontainers (PostgreSQL) |
 | API testing | Bruno |
 
 ## Modules
@@ -287,6 +289,32 @@ Then start the app with the `observability` profile (`SPRING_PROFILES_ACTIVE=obs
 ]
 ```
 
+## Database migrations (Flyway)
+
+The schema is owned by versioned SQL files in `src/main/resources/db/migration`, not by Hibernate.
+
+- **`V1__baseline.sql`** creates every table, index, foreign key and check constraint.
+- **Hibernate checks, never changes.** It runs with `ddl-auto=validate`, so a mismatch between the entities and the schema stops the app at startup instead of silently changing the database.
+- **Existing databases.** A database created earlier with `ddl-auto=update` is picked up with `baseline-on-migrate`: it is marked as V1 without re-running it.
+- **Every change is a new file.** Future schema changes go in `V2__...`, `V3__...`. Applied files are never edited, and Flyway checks their checksums.
+
+Why not `ddl-auto=update`? It can add columns, but it cannot change or drop constraints, change types or lengths, rename columns, or migrate data. It also leaves no reviewable history. Adding the `INSPECTION` status hit exactly this: the old check constraints were never updated.
+
+## Tests
+
+Integration tests run against a real PostgreSQL started by Testcontainers. Flyway runs `V1` on it, and Hibernate validates the schema.
+
+```bash
+./mvnw test
+```
+
+| Test | What it proves |
+|---|---|
+| `WbNhlsApplicationTests` | Migrations create a schema that matches the entities |
+| `LicenseWorkflowIntegrationTest` | Full review flow with real roles, status history with `changedBy`, notifications queued only for successful steps, the workflow blocks skipped steps, applicants cannot see each other's records, and 401/403 rules |
+
+Requests go through the real security filter chain. Only the JWT is mocked, with `spring-security-test`'s `jwt()`. Tests are skipped automatically when Docker is not available.
+
 ## Running locally
 
 **Requirements:** Java 21 and PostgreSQL. Optional: Mailpit, to see the emails (`mailpit --listen 127.0.0.1:8025 --smtp 127.0.0.1:1025`).
@@ -300,7 +328,7 @@ Then start the app with the `observability` profile (`SPRING_PROFILES_ACTIVE=obs
    export DB_PASSWORD=your_password
    ```
    On Windows PowerShell: `$env:DB_PASSWORD="your_password"`
-3. Run the app. Tables are created automatically on first start.
+3. Run the app. Flyway creates the schema on first start.
    ```bash
    ./mvnw spring-boot:run
    ```
@@ -327,5 +355,5 @@ User-facing error and success messages are in Bengali.
 - [x] Notifications through an `@Notify` aspect with an outbox table and retry
 - [x] Observability with Prometheus, Loki and Grafana
 - [x] Workflow transitions stored in the database instead of code
-- [ ] Flyway migrations in place of `ddl-auto=update`
-- [ ] Integration tests with Testcontainers
+- [x] Flyway migrations in place of `ddl-auto=update`
+- [x] Integration tests with Testcontainers
