@@ -1,0 +1,28 @@
+meta {
+  name: 04 Approver tries to skip review (400)
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/api/v1/license-applications/{{appNo}}/review
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{approverToken}}
+}
+
+body:json {
+  {
+    "applicationStatus": "APPROVED",
+    "remarks": "skip"
+  }
+}
+
+tests {
+  test("ধাপ বাদ দেওয়া যায় না (400), audit-এ FAILURE, log-এ WARN", function () {
+    expect(res.status).to.equal(400);
+  });
+}

@@ -1,0 +1,23 @@
+meta {
+  name: 03 Notification outbox
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/notifications?size=20
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+tests {
+  test("outbox-এ এই owner-এর email", function () {
+    expect(res.status).to.equal(200);
+    const mine = res.body.data.filter(n => n.recipient === bru.getVar("ownerEmail"));
+    expect(mine.length).to.be.greaterThan(3);
+  });
+}

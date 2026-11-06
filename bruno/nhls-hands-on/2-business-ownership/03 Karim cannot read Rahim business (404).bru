@@ -1,0 +1,21 @@
+meta {
+  name: 03 Karim cannot read Rahim business (404)
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/businesses/{{businessId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{tokenB}}
+}
+
+tests {
+  test("অন্যেরটা 404, 403 নয়: আছে কিনা সেটাও বোঝা যায় না", function () {
+    expect(res.status).to.equal(404);
+  });
+}

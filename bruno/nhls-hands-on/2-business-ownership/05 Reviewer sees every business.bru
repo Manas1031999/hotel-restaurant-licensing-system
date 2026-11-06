@@ -1,0 +1,21 @@
+meta {
+  name: 05 Reviewer sees every business
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/v1/businesses/{{businessId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{reviewerToken}}
+}
+
+tests {
+  test("staff সবারটা দেখতে পায় (200)", function () {
+    expect(res.status).to.equal(200);
+  });
+}

@@ -1,0 +1,17 @@
+meta {
+  name: 02 Other actuator endpoints stay closed
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/actuator/env
+  body: none
+  auth: none
+}
+
+tests {
+  test("বাকি actuator বন্ধ (401)", function () {
+    expect(res.status).to.equal(401);
+  });
+}

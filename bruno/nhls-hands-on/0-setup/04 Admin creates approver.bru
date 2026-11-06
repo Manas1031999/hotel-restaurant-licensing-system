@@ -1,0 +1,30 @@
+meta {
+  name: 04 Admin creates approver
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/v1/users
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+body:json {
+  {
+    "username": "{{approver}}",
+    "password": "{{userPassword}}",
+    "fullName": "Approver One",
+    "role": "APPROVER"
+  }
+}
+
+tests {
+  test("approver তৈরি (201)", function () {
+    expect(res.status).to.equal(201);
+  });
+}

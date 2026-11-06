@@ -1,0 +1,32 @@
+meta {
+  name: 02 Rahim submits application
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/license-applications
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{tokenA}}
+}
+
+body:json {
+  {
+    "businessId": {{businessId}}
+  }
+}
+
+script:post-response {
+  bru.setVar("appNo", res.body.applicationNumber);
+}
+
+tests {
+  test("আবেদন PENDING, outbox-এ APPLICATION_SUBMITTED email", function () {
+    expect(res.status).to.equal(201);
+    expect(res.body.applicationStatus).to.equal("PENDING");
+  });
+}

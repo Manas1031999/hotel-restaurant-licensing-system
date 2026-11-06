@@ -1,0 +1,37 @@
+meta {
+  name: 01 Rahim registers a hotel
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/businesses
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{tokenA}}
+}
+
+body:json {
+  {
+    "businessName": "Sonar Bangla Hotel {{suffix}}",
+    "businessType": "HOTEL",
+    "ownerName": "Rahim",
+    "mobileNumber": "{{mobile}}",
+    "email": "{{ownerEmail}}",
+    "district": "Kolkata",
+    "address": "25 Park Street"
+  }
+}
+
+script:post-response {
+  bru.setVar("businessId", res.body.businessId);
+}
+
+tests {
+  test("business তৈরি, owner = rahim (201)", function () {
+    expect(res.status).to.equal(201);
+  });
+}

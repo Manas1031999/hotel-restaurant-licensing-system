@@ -1,0 +1,17 @@
+meta {
+  name: 01 No token gets 401
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/businesses
+  body: none
+  auth: none
+}
+
+tests {
+  test("token ছাড়া 401", function () {
+    expect(res.status).to.equal(401);
+  });
+}

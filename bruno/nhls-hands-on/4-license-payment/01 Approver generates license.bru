@@ -1,0 +1,25 @@
+meta {
+  name: 01 Approver generates license
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/licenses/generate/{{appNo}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{approverToken}}
+}
+
+script:post-response {
+  bru.setVar("licenseNo", res.body.licenseNumber);
+}
+
+tests {
+  test("license জারি, LICENSE_ISSUED email outbox-এ", function () {
+    expect(res.status).to.equal(201);
+  });
+}

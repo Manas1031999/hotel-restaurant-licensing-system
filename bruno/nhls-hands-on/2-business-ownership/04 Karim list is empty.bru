@@ -1,0 +1,22 @@
+meta {
+  name: 04 Karim list is empty
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/businesses
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{tokenB}}
+}
+
+tests {
+  test("তালিকায় শুধু নিজেরগুলো আসে", function () {
+    expect(res.status).to.equal(200);
+    expect(res.body.pagination.totalElements).to.equal(0);
+  });
+}

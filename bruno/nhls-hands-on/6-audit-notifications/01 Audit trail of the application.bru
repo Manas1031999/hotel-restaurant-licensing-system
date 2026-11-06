@@ -1,0 +1,24 @@
+meta {
+  name: 01 Audit trail of the application
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/audit-logs?entityType=LICENSE_APPLICATION&entityId={{appNo}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+tests {
+  test("সফল আর ব্যর্থ সব চেষ্টা, আসল নাম সহ", function () {
+    expect(res.status).to.equal(200);
+    const outcomes = res.body.logs.map(l => l.outcome);
+    expect(outcomes).to.include("SUCCESS");
+    expect(outcomes).to.include("FAILURE");
+  });
+}

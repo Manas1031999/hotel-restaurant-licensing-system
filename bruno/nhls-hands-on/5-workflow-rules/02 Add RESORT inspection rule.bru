@@ -1,0 +1,34 @@
+meta {
+  name: 02 Add RESORT inspection rule
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/workflow/transitions
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+body:json {
+  {
+    "businessType": "RESORT",
+    "fromStatus": "UNDER_REVIEW",
+    "toStatus": "INSPECTION",
+    "requiredRole": "REVIEWER"
+  }
+}
+
+script:post-response {
+  bru.setVar("ruleId", res.body.data.id);
+}
+
+tests {
+  test("code না বদলেই নতুন নিয়ম (201)", function () {
+    expect(res.status).to.equal(201);
+  });
+}

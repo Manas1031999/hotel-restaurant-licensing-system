@@ -1,0 +1,21 @@
+meta {
+  name: 03 Reviewer available actions
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/license-applications/{{appNo}}/available-actions
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{reviewerToken}}
+}
+
+tests {
+  test("PENDING থেকে reviewer শুধু UNDER_REVIEW দিতে পারে (DB-র নিয়ম)", function () {
+    expect(res.body.availableActions).to.deep.equal(["UNDER_REVIEW"]);
+  });
+}

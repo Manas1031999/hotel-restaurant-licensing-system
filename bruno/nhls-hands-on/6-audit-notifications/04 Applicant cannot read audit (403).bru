@@ -1,0 +1,21 @@
+meta {
+  name: 04 Applicant cannot read audit (403)
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/audit-logs
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{tokenA}}
+}
+
+tests {
+  test("audit শুধু ADMIN দেখে (403)", function () {
+    expect(res.status).to.equal(403);
+  });
+}

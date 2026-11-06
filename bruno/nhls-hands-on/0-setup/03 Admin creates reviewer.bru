@@ -1,0 +1,31 @@
+meta {
+  name: 03 Admin creates reviewer
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/users
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{adminToken}}
+}
+
+body:json {
+  {
+    "username": "{{reviewer}}",
+    "password": "{{userPassword}}",
+    "fullName": "Reviewer One",
+    "role": "REVIEWER"
+  }
+}
+
+tests {
+  test("শুধু ADMIN staff বানাতে পারে (201)", function () {
+    expect(res.status).to.equal(201);
+    expect(res.body.data.role).to.equal("REVIEWER");
+  });
+}

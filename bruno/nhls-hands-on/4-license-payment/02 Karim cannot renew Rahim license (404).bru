@@ -1,0 +1,21 @@
+meta {
+  name: 02 Karim cannot renew Rahim license (404)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/licenses/renew/{{licenseNo}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{tokenB}}
+}
+
+tests {
+  test("অন্যের license-এ হাত দেওয়া যায় না", function () {
+    expect(res.status).to.equal(404);
+  });
+}

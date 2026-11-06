@@ -1,0 +1,26 @@
+meta {
+  name: 05 Register applicant A
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/register
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "username": "{{applicantA}}",
+    "password": "{{userPassword}}",
+    "fullName": "Rahim"
+  }
+}
+
+tests {
+  test("নিজে register করলে সবসময় APPLICANT (201)", function () {
+    expect(res.status).to.equal(201);
+    expect(res.body.data.role).to.equal("APPLICANT");
+  });
+}

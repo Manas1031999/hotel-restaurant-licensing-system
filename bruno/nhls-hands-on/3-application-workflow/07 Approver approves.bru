@@ -1,0 +1,28 @@
+meta {
+  name: 07 Approver approves
+  type: http
+  seq: 7
+}
+
+put {
+  url: {{baseUrl}}/api/v1/license-applications/{{appNo}}/review
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{approverToken}}
+}
+
+body:json {
+  {
+    "applicationStatus": "APPROVED",
+    "remarks": "সব ঠিক আছে"
+  }
+}
+
+tests {
+  test("approve সফল (200)", function () {
+    expect(res.status).to.equal(200);
+  });
+}

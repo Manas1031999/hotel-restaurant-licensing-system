@@ -1,0 +1,21 @@
+meta {
+  name: 06 Completing twice gets 409
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/payments/mock/{{txRef}}?success=true
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{tokenA}}
+}
+
+tests {
+  test("একই payment দুবার নয় (409)", function () {
+    expect(res.status).to.equal(409);
+  });
+}

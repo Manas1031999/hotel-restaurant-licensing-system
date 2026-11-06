@@ -1,0 +1,21 @@
+meta {
+  name: 04 Reviewer cannot manage rules (403)
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/workflow/transitions
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{reviewerToken}}
+}
+
+tests {
+  test("নিয়ম শুধু ADMIN বদলায় (403)", function () {
+    expect(res.status).to.equal(403);
+  });
+}

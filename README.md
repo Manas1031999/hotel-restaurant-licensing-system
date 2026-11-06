@@ -321,6 +321,8 @@ Requests go through the real security filter chain. Only the JWT is mocked, with
 
 ## Running locally
 
+> **Try every feature yourself:** follow [docs/HANDS-ON-GUIDE.md](docs/HANDS-ON-GUIDE.md) (Bengali). Start everything with `.scriptsdev-up.ps1`, then open the ready-made Bruno collection in [`bruno/nhls-hands-on`](bruno/nhls-hands-on). It has 43 requests with built-in tests, and tokens and IDs are passed between requests automatically.
+
 **Requirements:** Java 21 and PostgreSQL. Optional: Mailpit, to see the emails (`mailpit --listen 127.0.0.1:8025 --smtp 127.0.0.1:1025`).
 
 1. Create the database:

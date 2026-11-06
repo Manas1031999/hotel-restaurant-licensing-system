@@ -1,0 +1,28 @@
+meta {
+  name: 08 Login approver
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "username": "{{approver}}",
+    "password": "{{userPassword}}"
+  }
+}
+
+script:post-response {
+  bru.setVar("approverToken", res.body.data.accessToken);
+}
+
+tests {
+  test("login সফল", function () {
+    expect(res.status).to.equal(200);
+  });
+}

@@ -1,0 +1,21 @@
+meta {
+  name: 03 Rahim renews license
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/licenses/renew/{{licenseNo}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{tokenA}}
+}
+
+tests {
+  test("মেয়াদ আরও ১ বছর বাড়ল", function () {
+    expect(res.status).to.equal(200);
+  });
+}

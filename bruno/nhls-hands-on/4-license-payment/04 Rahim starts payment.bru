@@ -1,0 +1,31 @@
+meta {
+  name: 04 Rahim starts payment
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/payments/initiate
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{tokenA}}
+}
+
+body:json {
+  {
+    "licenseNumber": "{{licenseNo}}"
+  }
+}
+
+script:post-response {
+  bru.setVar("txRef", res.body.transactionReference);
+}
+
+tests {
+  test("payment PENDING", function () {
+    expect(res.body.status).to.equal("PENDING");
+  });
+}

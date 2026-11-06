@@ -1,0 +1,30 @@
+meta {
+  name: 03 Applicant cannot create users (403)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/users
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{tokenA}}
+}
+
+body:json {
+  {
+    "username": "hacker_{{suffix}}",
+    "password": "Passw0rd!",
+    "fullName": "Hacker",
+    "role": "ADMIN"
+  }
+}
+
+tests {
+  test("APPLICANT নিজেকে ADMIN বানাতে পারে না (403)", function () {
+    expect(res.status).to.equal(403);
+  });
+}

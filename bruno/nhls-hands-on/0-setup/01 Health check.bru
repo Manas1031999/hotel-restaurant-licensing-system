@@ -1,0 +1,29 @@
+meta {
+  name: 01 Health check
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/health
+  body: none
+  auth: none
+}
+
+script:pre-request {
+  // প্রতিবার চালালে নতুন নাম, যাতে আগের data-র সাথে না মেলে
+  const suffix = Date.now().toString().slice(-6);
+  bru.setVar("suffix", suffix);
+  bru.setVar("mobile", "9" + Math.floor(100000000 + Math.random() * 899999999));
+  bru.setVar("reviewer", "reviewer_" + suffix);
+  bru.setVar("approver", "approver_" + suffix);
+  bru.setVar("applicantA", "rahim_" + suffix);
+  bru.setVar("applicantB", "karim_" + suffix);
+  bru.setVar("ownerEmail", "rahim" + suffix + "@example.com");
+}
+
+tests {
+  test("app চলছে (200)", function () {
+    expect(res.status).to.equal(200);
+  });
+}
