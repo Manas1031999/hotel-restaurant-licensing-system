@@ -37,7 +37,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login").permitAll()
 
                 // শুধু ADMIN
-                .requestMatchers("/api/v1/users/**", "/api/v1/audit-logs/**", "/api/v1/notifications/**").hasRole(ADMIN)
+                .requestMatchers("/api/v1/users/**", "/api/v1/audit-logs/**", "/api/v1/notifications/**",
+                        "/api/v1/workflow/**").hasRole(ADMIN)
 
                 // Business
                 .requestMatchers(HttpMethod.POST, "/api/v1/businesses").hasAnyRole(APPLICANT, ADMIN)

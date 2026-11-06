@@ -2,8 +2,6 @@ package in.wb.nhls.license.service;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -26,37 +24,27 @@ import in.wb.nhls.license.entity.ApplicationStatusHistory;
 import in.wb.nhls.license.entity.LicenseApplication;
 import in.wb.nhls.notification.annotation.Notify;
 import in.wb.nhls.notification.template.NotificationTemplate;
-import in.wb.nhls.user.entity.Role;
 import in.wb.nhls.user.service.CurrentUser;
+import in.wb.nhls.workflow.service.WorkflowService;
 
 @Service
 public class LicenseApplicationService {
 
-    // কোন status থেকে কোথায় যাওয়া যাবে
-    private static final Map<LicenseApplicationStatus, Set<LicenseApplicationStatus>> ALLOWED_TRANSITIONS = Map.of(
-            LicenseApplicationStatus.PENDING, Set.of(LicenseApplicationStatus.UNDER_REVIEW),
-            LicenseApplicationStatus.UNDER_REVIEW, Set.of(
-                    LicenseApplicationStatus.APPROVED,
-                    LicenseApplicationStatus.REJECTED));
-
-    // কোন status কে দিতে পারবে: review করে REVIEWER, চূড়ান্ত সিদ্ধান্ত APPROVER
-    private static final Map<LicenseApplicationStatus, Role> REQUIRED_ROLE = Map.of(
-            LicenseApplicationStatus.UNDER_REVIEW, Role.REVIEWER,
-            LicenseApplicationStatus.APPROVED, Role.APPROVER,
-            LicenseApplicationStatus.REJECTED, Role.APPROVER);
-
     private final LicenseApplicationRepository licenseApplicationRepository;
     private final BusinessRepository businessRepository;
     private final ApplicationStatusHistoryRepository statusHistoryRepository;
+    private final WorkflowService workflowService;
 
     public LicenseApplicationService(
             LicenseApplicationRepository licenseApplicationRepository,
             BusinessRepository businessRepository,
-            ApplicationStatusHistoryRepository statusHistoryRepository) {
+            ApplicationStatusHistoryRepository statusHistoryRepository,
+            WorkflowService workflowService) {
 
         this.licenseApplicationRepository = licenseApplicationRepository;
         this.businessRepository = businessRepository;
         this.statusHistoryRepository = statusHistoryRepository;
+        this.workflowService = workflowService;
     }
 
     @Auditable(action = "APPLICATION_SUBMIT", entityType = "LICENSE_APPLICATION",
@@ -129,6 +117,14 @@ public class LicenseApplicationService {
         return application;
     }
 
+    // বর্তমান user এই আবেদনে কোন কোন status দিতে পারবে
+    @Transactional(readOnly = true)
+    public List<LicenseApplicationStatus> getAvailableActions(String applicationNumber) {
+        LicenseApplication application = getApplicationByNumber(applicationNumber);
+        return workflowService.availableActions(
+                application.getBusiness().getBusinessType(), application.getApplicationStatus());
+    }
+
     @Auditable(action = "APPLICATION_REVIEW", entityType = "LICENSE_APPLICATION",
             entityId = "#applicationNumber",
             detail = "'requested status: ' + #request.applicationStatus()")
@@ -152,28 +148,9 @@ public class LicenseApplicationService {
 
         LicenseApplicationStatus newStatus = request.applicationStatus();
 
-        Set<LicenseApplicationStatus> allowedNext = ALLOWED_TRANSITIONS.getOrDefault(currentStatus, Set.of());
-
-        // APPROVED বা REJECTED হলে আর কোনো পরিবর্তন করা যাবে না
-        if (allowedNext.isEmpty()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "এই আবেদনটি ইতিমধ্যে চূড়ান্তভাবে নিষ্পত্তি হয়েছে");
-        }
-
-        if (!allowedNext.contains(newStatus)) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    currentStatus.name() + " থেকে " + newStatus.name()
-                            + " করা যাবে না। অনুমোদিত: " + allowedNext);
-        }
-
-        Role requiredRole = REQUIRED_ROLE.get(newStatus);
-        if (!CurrentUser.hasRole(requiredRole)) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    newStatus.name() + " করার অনুমতি শুধু " + requiredRole.name() + "-এর আছে");
-        }
+        // নিয়ম আসে DB থেকে (workflow_transition): ভুল ধাপে 400, ভুল role-এ 403
+        workflowService.checkTransition(
+                application.getBusiness().getBusinessType(), currentStatus, newStatus);
 
         application.setApplicationStatus(newStatus);
         application.setRemarks(request.remarks());

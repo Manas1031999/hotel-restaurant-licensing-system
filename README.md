@@ -5,7 +5,7 @@ A backend for registering hotels, restaurants, lodges and resorts, reviewing the
 The project focuses on five backend patterns:
 
 - **JWT authentication with roles.** Applicants, reviewers, approvers and admins each get only the actions they need.
-- **Rule-driven review workflow.** Applications move through fixed states, and invalid jumps are rejected.
+- **Configurable review workflow.** Allowed status changes and the roles that may make them are stored in the database, per business type, and editable by admins.
 - **Status history.** Every state change is recorded in the same transaction as the change itself.
 - **AOP audit logging.** One `@Auditable` annotation records who did what, from where, and whether it succeeded, with no audit code inside business methods.
 - **Transactional outbox notifications.** One `@Notify` annotation queues an email in the same transaction as the business change, and a dispatcher sends it with retries.
@@ -32,6 +32,7 @@ in.wb.nhls
 ├── audit/      @Auditable annotation, aspect, async listener, audit log API
 ├── user/       Users, roles, register/login, JWT issuing, admin user management
 ├── notification/ @Notify annotation, outbox table, mail dispatcher, admin API
+├── workflow/   Transition rules in the database, seeding, admin API
 ├── config/     Security rules, JWT encoder/decoder, JSON 401/403 responses
 └── exception/  Global exception handler (consistent JSON errors)
 ```
@@ -49,7 +50,7 @@ Login returns a signed JWT. Send it on every request as `Authorization: Bearer <
 | `APPROVER` | `APPROVED` / `REJECTED`, generate licenses |
 | `ADMIN` | Create staff users, read audit logs, deactivate businesses, run the expiry job |
 
-- **Two layers of checks.** URL rules in `SecurityConfig` decide who may call an endpoint. Inside the review endpoint, the service also checks which role may set which status, so a reviewer cannot approve and an approver cannot skip the review step.
+- **Two layers of checks.** URL rules in `SecurityConfig` decide who may call an endpoint. Inside the review endpoint, the workflow rules also decide which role may set which status, so a reviewer cannot approve and an approver cannot skip the review step.
 - **Built-in token handling.** Tokens are validated by Spring Security's resource server (signature, expiry, issuer), not by a hand-written filter.
 - **Token claims.** The username is the `sub` claim and the role is in `roles`. Audit logs and status history record the real user automatically.
 - **Staff accounts.** Self sign-up always creates an `APPLICANT`. Only an `ADMIN` can create `REVIEWER`, `APPROVER` or `ADMIN` accounts.
@@ -78,10 +79,25 @@ stateDiagram-v2
     REJECTED --> [*]
 ```
 
-- The allowed transitions live in a single `ALLOWED_TRANSITIONS` map in `LicenseApplicationService`.
-- Jumping straight from `PENDING` to `APPROVED` returns `400` with the list of allowed next states.
-- `APPROVED` and `REJECTED` are final.
-- Every successful transition writes a row to `application_status_history`, inside the same transaction.
+The diagram shows the default flow. The rules are stored in the database, not in code.
+
+- **Each rule is a row in `workflow_transition`:** `from_status → to_status`, the role allowed to make that move, and an optional `business_type`.
+- **Per business type.** If a business type has its own rules for a status, those are used. Otherwise the default rules (`business_type = NULL`) apply. For example, an admin can make hotels go through an extra `INSPECTION` step while restaurants are approved directly:
+
+  ```mermaid
+  stateDiagram-v2
+      PENDING --> UNDER_REVIEW: REVIEWER
+      UNDER_REVIEW --> INSPECTION: REVIEWER (HOTEL only)
+      INSPECTION --> APPROVED: APPROVER
+      INSPECTION --> REJECTED: APPROVER
+  ```
+
+- **Admin-managed.** Admins add or disable rules through `/api/v1/workflow/transitions`, with no code change or redeploy. Rules are disabled, never deleted, and every change is audited.
+- **Safe defaults.** On first start, the current default rules are seeded.
+- **Clear errors.** A move that is not allowed returns `400` with the list of allowed next states. A move made with the wrong role returns `403`.
+- **Final states.** A status with no outgoing rules (`APPROVED`, `REJECTED`) is final.
+- **UI support.** `GET /api/v1/license-applications/{appNo}/available-actions` returns the statuses the current user may set, so a UI can show only the valid buttons.
+- **History.** Every successful transition writes a row to `application_status_history`, inside the same transaction.
 
 ### License lifecycle
 
@@ -194,6 +210,14 @@ Locally, [Mailpit](https://mailpit.axllent.org/) catches every email. SMTP runs 
 | PUT | `/api/v1/license-applications/{applicationNumber}/review` | Change status (follows the workflow rules) |
 | GET | `/api/v1/license-applications?applicationStatus=PENDING&page=0&size=10` | List by status |
 | GET | `/api/v1/license-applications/{applicationNumber}/status-history` | Status timeline |
+| GET | `/api/v1/license-applications/{applicationNumber}/available-actions` | Statuses the current user may set now |
+
+### Workflow rules (ADMIN)
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/v1/workflow/transitions` | List all rules |
+| POST | `/api/v1/workflow/transitions` | Add a rule: `{ "businessType": "HOTEL", "fromStatus": "UNDER_REVIEW", "toStatus": "INSPECTION", "requiredRole": "REVIEWER" }` |
+| DELETE | `/api/v1/workflow/transitions/{id}` | Disable a rule |
 
 ### Licenses
 | Method | Endpoint | Description |
@@ -268,6 +292,6 @@ User-facing error and success messages are in Bengali.
 - [x] Ownership checks, so applicants see and change only their own businesses and applications
 - [x] Notifications through an `@Notify` aspect with an outbox table and retry
 - [ ] Observability with Prometheus, Loki and Grafana
-- [ ] Workflow transitions stored in the database instead of code
+- [x] Workflow transitions stored in the database instead of code
 - [ ] Flyway migrations in place of `ddl-auto=update`
 - [ ] Integration tests with Testcontainers

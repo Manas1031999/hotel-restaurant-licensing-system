@@ -72,6 +72,15 @@ public class LicenseApplicationController {
                 licenseApplicationService.getStatusHistory(applicationNumber));
     }
 
+    @GetMapping("/{applicationNumber}/available-actions")
+    public ResponseEntity<Map<String, Object>> getAvailableActions(
+            @PathVariable String applicationNumber) {
+
+        return ResponseEntity.ok(Map.of(
+                "applicationNumber", applicationNumber,
+                "availableActions", licenseApplicationService.getAvailableActions(applicationNumber)));
+    }
+
     @PutMapping("/{applicationNumber}/review")
     public ResponseEntity<Map<String, Object>> reviewApplication(
             @PathVariable String applicationNumber,
