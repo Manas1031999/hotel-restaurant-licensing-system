@@ -40,6 +40,15 @@ public class AuditLogListener {
     private void save(AuditEvent event) {
         try {
             auditLogRepository.save(AuditLog.from(event));
+
+            // একই তথ্য log-এও যায়, তাই Loki/Grafana-তে দেখা যায়; ব্যর্থ চেষ্টা WARN
+            if (event.isSuccess()) {
+                log.info("AUDIT action={} entity={}:{} actor={} {}ms",
+                        event.action(), event.entityType(), event.entityId(), event.actor(), event.durationMs());
+            } else {
+                log.warn("AUDIT FAILED action={} entity={}:{} actor={} error=\"{}\"",
+                        event.action(), event.entityType(), event.entityId(), event.actor(), event.errorMessage());
+            }
         } catch (Exception ex) {
             log.error("Audit log লেখা যায়নি: {}", event, ex);
         }

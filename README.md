@@ -208,6 +208,10 @@ flowchart LR
 - **Logs.** With the `observability` profile, logs are also pushed to Loki, labelled by app, level and logger.
 - **Dashboard.** A ready-made dashboard, *NHLS - Licensing System Overview*, is provisioned automatically. It covers business activity, HTTP traffic and latency, JVM, threads, the DB pool, and error logs.
 
+![Grafana: business metrics](docs/Screenshot%202026-11-07%20005037.png)
+![Grafana: HTTP traffic and latency](docs/Screenshot%202026-11-07%20005200.png)
+![Grafana: JVM, threads, DB pool and logs](docs/Screenshot%202026-11-07%20005230.png)
+
 **Run it** (requires Docker):
 
 ```bash

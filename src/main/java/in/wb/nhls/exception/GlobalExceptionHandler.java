@@ -17,6 +17,8 @@ import in.wb.nhls.business.dto.ApiResponse;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     /**
      * Handle application-specific HTTP errors.
      */
@@ -52,7 +54,7 @@ public class GlobalExceptionHandler {
             Exception ex) {
 
         // Log the actual exception for debugging.
-        ex.printStackTrace();
+        log.error("Unhandled exception", ex);
 
         ApiResponse<Object> response = new ApiResponse<>(
                 false,

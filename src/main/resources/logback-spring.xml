@@ -13,12 +13,15 @@
     <!-- observability profile চালু থাকলে log Loki-তেও যায় -->
     <springProfile name="observability">
         <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
+            <!-- ডিফল্ট ৬০ সেকেন্ড; ৫ সেকেন্ডে পাঠালে Grafana-য় প্রায় সঙ্গে সঙ্গে দেখা যায় -->
+            <batchTimeoutMs>5000</batchTimeoutMs>
             <http>
                 <url>${lokiUrl}</url>
             </http>
             <format>
+                <!-- label কম রাখতে হয় (Loki-র নিয়ম); logger নাম message-এ থাকে -->
                 <label>
-                    <pattern>app=${appName},level=%level,logger=%logger{20}</pattern>
+                    <pattern>app=${appName},level=%level</pattern>
                 </label>
                 <message>
                     <pattern>%d{ISO8601} %-5level [%thread] %logger{36} - %msg%n%ex</pattern>
