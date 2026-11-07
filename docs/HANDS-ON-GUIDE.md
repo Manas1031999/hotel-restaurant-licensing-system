@@ -15,7 +15,31 @@
 
 ---
 
-## ১. সব চালু কর
+## ১ক. সবচেয়ে সহজ: পুরো system Docker-এ
+
+Java, Postgres বা Mailpit কিছুই আলাদা করে চালাতে হয় না। Project folder-এ শুধু:
+
+```powershell
+docker compose up -d --build
+```
+
+প্রথমবার কয়েক মিনিট লাগবে, কারণ image build হয়। তারপর `docker compose logs -f app` দিয়ে দেখ কখন `Started WbNhlsApplication` আসে (`Ctrl+C` চাপলে শুধু log দেখা বন্ধ হয়, app চলতেই থাকে)।
+
+- এখানে database আলাদা, একদম খালি থেকে শুরু হয়। তোর আসল `wb_nhls` DB-তে হাত পড়ে না।
+- DB দেখতে: `localhost:5433`, user `postgres`, password `postgres`।
+- বন্ধ করতে: `docker compose down`।
+- এই অবস্থায় IDE থেকে app চালাবি না, দুজনেই 8080 port চাইবে।
+
+এরপর সরাসরি **ধাপ ২ (Bruno)** থেকে শুরু কর।
+
+**Swagger:** http://localhost:8080/swagger-ui.html খুলে সব API browser থেকেই চালানো যায়:
+1. `POST /api/v1/auth/login` খুলে **Try it out** চাপ, admin দিয়ে login কর।
+2. Response থেকে `accessToken` কপি কর।
+3. উপরের **Authorize** বাটনে token-টা paste কর।
+
+---
+
+## ১খ. অথবা: IDE থেকে app চালিয়ে (code বদলে দেখার জন্য)
 
 **Terminal ১: Docker container আর Mailpit**
 

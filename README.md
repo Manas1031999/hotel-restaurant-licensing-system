@@ -1,5 +1,9 @@
 # Hotel & Restaurant Licensing System
 
+[![CI](https://github.com/Manas1031999/hotel-restaurant-licensing-system/actions/workflows/ci.yml/badge.svg)](https://github.com/Manas1031999/hotel-restaurant-licensing-system/actions/workflows/ci.yml)
+
+**Quick start:** with only Docker installed, `docker compose up -d --build` runs the whole system: PostgreSQL, the app, Mailpit, Prometheus, Loki and Grafana. Then open the API docs at http://localhost:8080/swagger-ui.html.
+
 A backend for registering hotels, restaurants, lodges and resorts, reviewing their license applications, and issuing, renewing and expiring licenses. Built with **Spring Boot 4** and **Java 21**.
 
 The project focuses on five backend patterns:
@@ -23,6 +27,8 @@ The project focuses on five backend patterns:
 | Database migrations | Flyway (Hibernate in `validate` mode) |
 | Build | Maven (wrapper included) |
 | Testing | JUnit 5, Spring MockMvc, Spring Security Test, Testcontainers (PostgreSQL) |
+| API docs | springdoc-openapi (Swagger UI) |
+| Delivery | Multi-stage Dockerfile, Docker Compose, GitHub Actions CI |
 | API testing | Bruno |
 
 ## Modules
@@ -319,7 +325,46 @@ Integration tests run against a real PostgreSQL started by Testcontainers. Flywa
 
 Requests go through the real security filter chain. Only the JWT is mocked, with `spring-security-test`'s `jwt()`. Tests are skipped automatically when Docker is not available.
 
-## Running locally
+## Run everything with Docker
+
+The only requirement is Docker.
+
+```bash
+docker compose up -d --build
+```
+
+| Service | URL |
+|---|---|
+| API | http://localhost:8080 |
+| Swagger UI | http://localhost:8080/swagger-ui.html |
+| Grafana | http://localhost:3000 (`admin` / `admin`) |
+| Mailpit | http://localhost:8025 |
+| Prometheus | http://localhost:9090 |
+| PostgreSQL | `localhost:5433` (`postgres` / `postgres`) |
+
+- **Image.** A multi-stage `Dockerfile` builds the jar with the JDK, then runs it on a slim JRE image as a non-root user.
+- **Startup order.** The app waits until PostgreSQL is healthy. Flyway creates the schema on first start.
+- **Stop.** `docker compose down` stops everything but keeps the database volume. `docker compose down -v` also deletes the data.
+
+## API documentation (Swagger)
+
+`/swagger-ui.html` lists every endpoint with its request and response shapes, and lets you call them from the browser:
+
+1. Run `POST /api/v1/auth/login` with `admin` / `Admin@12345`.
+2. Copy `data.accessToken`.
+3. Click **Authorize** and paste the token. Every request after that sends it.
+
+The raw OpenAPI document is at `/v3/api-docs`.
+
+## Continuous integration
+
+On every push and pull request, [GitHub Actions](.github/workflows/ci.yml):
+
+1. Runs `./mvnw verify`, including the Testcontainers integration tests against a real PostgreSQL.
+2. Uploads the test reports.
+3. Builds the Docker image.
+
+## Running locally (from the IDE)
 
 > **Try every feature yourself:** follow [docs/HANDS-ON-GUIDE.md](docs/HANDS-ON-GUIDE.md) (Bengali). Start everything with `.\scripts\dev-up.ps1`, then open the ready-made Bruno collection in [`bruno/nhls-hands-on`](bruno/nhls-hands-on). It has 43 requests with built-in tests, and tokens and IDs are passed between requests automatically.
 

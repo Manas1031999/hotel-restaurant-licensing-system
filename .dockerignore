@@ -1,0 +1,9 @@
+target/
+.git/
+.vscode/
+.idea/
+bruno/
+docs/
+infra/
+scripts/
+*.md

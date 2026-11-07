@@ -1,0 +1,89 @@
+# পুরো system এক command-এ: Postgres + app + Mailpit + Prometheus + Loki + Grafana
+#   docker compose up -d --build
+# Java বা Postgres install করা লাগে না। বন্ধ করতে: docker compose down (data থাকে)
+#
+# App      http://localhost:8080   (Swagger: /swagger-ui.html)
+# Grafana  http://localhost:3000   (admin / admin)
+# Mailpit  http://localhost:8025
+# Postgres localhost:5433          (postgres / postgres)
+#
+# IDE থেকে app চালাতে চাইলে এটা নয়, infra/docker-compose.yml ব্যবহার কর।
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: wb_nhls
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d wb_nhls"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit:v1.20.0
+    ports:
+      - "127.0.0.1:8025:8025"
+
+  app:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+      loki:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: observability
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/wb_nhls
+      SPRING_DATASOURCE_USERNAME: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      NHLS_LOKI_URL: http://loki:3100/loki/api/v1/push
+      SPRING_JPA_SHOW_SQL: "false"
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-please-0123456789abcdef}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin@12345}
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./infra/prometheus/prometheus-docker.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "127.0.0.1:9090:9090"
+
+  loki:
+    image: grafana/loki:3.1.0
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "127.0.0.1:3100:3100"
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_DEFAULT_THEME: dark
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - prometheus
+      - loki
+
+volumes:
+  pgdata:

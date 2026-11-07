@@ -1,0 +1,9 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  # পুরো stack docker-এ চললে app container-এর নাম "app"
+  - job_name: wb-nhls
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["app:8080"]
